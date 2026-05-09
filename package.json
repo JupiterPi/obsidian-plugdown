@@ -3,8 +3,14 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "bun run build.ts",
+    "build": "tsc && bun run build.ts --prod",
+    "version": "bun run version-bump.ts"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "obsidian": "^1.12.3"
   },
   "peerDependencies": {
     "typescript": "^5"
