@@ -32,7 +32,7 @@ async function build() {
   );
   const { success, logs } = await Bun.build({
     banner: BANNER,
-    entrypoints: [`${SRC}/main.ts`],
+    entrypoints: [`${SRC}/main.tsx`],
     outdir: "out",
     external: [
       "obsidian",
