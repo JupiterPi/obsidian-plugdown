@@ -1,4 +1,4 @@
-import { Modal } from "obsidian";
+import { Modal, PluginSettingTab } from "obsidian";
 import { createContext, StrictMode, useContext, type JSX } from "react";
 import { type Root, createRoot } from "react-dom/client";
 import type MyPlugin from "./main";
@@ -49,6 +49,33 @@ export class ReactModal extends Modal {
   }
 
   override onClose(): void {
+    this.root?.unmount();
+  }
+}
+
+export class ReactSettingsTab extends PluginSettingTab {
+  root: Root | null = null;
+
+  constructor(
+    private plugin: MyPlugin,
+    private content: JSX.Element,
+  ) {
+    super(plugin.app, plugin);
+  }
+
+  override display() {
+    const rootDiv = this.containerEl.createDiv();
+    this.root = createRoot(rootDiv);
+    this.root.render(
+      <StrictMode>
+        <PluginContext.Provider value={this.plugin}>
+          {this.content}
+        </PluginContext.Provider>
+      </StrictMode>,
+    );
+  }
+
+  override hide() {
     this.root?.unmount();
   }
 }

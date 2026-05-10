@@ -1,14 +1,12 @@
-import {
-  type App,
-  Notice,
-  type ObsidianProtocolData,
-  Plugin,
-  PluginSettingTab,
-  Setting,
-} from "obsidian";
+import { Notice, type ObsidianProtocolData, Plugin } from "obsidian";
 import { BehaviorSubject } from "rxjs";
 import z from "zod";
-import { ReactModal, useObsidianModal, usePlugin } from "./react-wrappers";
+import {
+  ReactModal,
+  ReactSettingsTab,
+  useObsidianModal,
+  usePlugin,
+} from "./react-wrappers";
 import type { JSX } from "react/jsx-runtime";
 import { type DownloadedPlugin, PluginManager } from "./plugin-manager";
 import { useEffect, useState } from "react";
@@ -30,7 +28,8 @@ export default class MyPlugin extends Plugin {
       this.saveData(settings);
     });
 
-    this.addSettingTab(new MySettings(this.app, this));
+    this.addSettingTab(new ReactSettingsTab(this, <SettingsTab />));
+
     registerObsidianProtocolHandler(this);
   }
 
@@ -134,21 +133,32 @@ const InstallationConfirmModal = ({ downloadUrl }: { downloadUrl: string }) => {
 
 // settings tab
 
-class MySettings extends PluginSettingTab {
-  plugin: MyPlugin;
+const SettingsTab = () => {
+  const [downloadUrl, setDownloadUrl] = useState("");
 
-  constructor(app: App, plugin: MyPlugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    new Setting(containerEl).setDesc(
-      "Here, you will maybe be able to manage plugins installed through Plugdown.",
-    );
-    // todo
-  }
-}
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div style={{ fontWeight: "bold" }}>Generate a Plugdown link</div>
+      Enter the download URL to the zip file that contains the plugin you want
+      to share. This zip file needs to contain the manifest.json file at the
+      root level.
+      <input
+        type="text"
+        style={{ flex: 1 }}
+        placeholder="https://example.com/your-plugin.zip"
+        value={downloadUrl}
+        onChange={(e) => setDownloadUrl(e.target.value)}
+      />
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <span>➡️</span>
+        <input
+          type="text"
+          style={{ flex: 1 }}
+          readOnly
+          value={`obsidian://plugdown-install?download_url=${encodeURIComponent(downloadUrl)}`}
+          onFocus={(e) => e.target.select()}
+        />
+      </div>
+    </div>
+  );
+};
