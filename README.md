@@ -7,7 +7,7 @@ Quickly install Obsidian plugins from a (downloaded) zip file.
 
 ## Installation
 
-Install Plugdown from source (you will figure it out).
+Install Plugdown from this repo's [releases](https://github.com/JupiterPi/obsidian-plugdown/releases).
 
 ## Distributing your plugin using Plugdown
 
