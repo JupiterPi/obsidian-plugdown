@@ -5,8 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "bun run build.ts",
-    "build": "tsc && bun run build.ts --prod",
-    "version": "bun run version-bump.ts"
+    "build": "tsc && bun run build.ts --prod"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -1,0 +1,100 @@
+name: Release Obsidian plugin
+
+# This workflow is used to create releases of obsidian-plugdown.
+# To create a new release, create a commit with a message including "release obsidian-plugdown vX.Y.Z".
+# Make sure that the version in manifest.json matches and
+# that a corresponding changelog entry is found in CHANGELOG.md.
+# A tag will be created like "obsidian-plugdown@vX.Y.Z" and a GitHub Release (prerelease) will be created.
+
+# adapted from https://github.com/FilenCloudDienste/filen-rs/blob/99f72e8e172d08535dd6e3e2dcd2ae357166c840/.github/workflows/release-cli.yml
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: ["*"]
+
+jobs:
+  tag:
+    if: contains(github.event.head_commit.message, 'release obsidian-plugdown')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # create tag
+      - name: Create Tag
+        uses: christophebedard/tag-version-commit@v1
+        id: create-tag
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version_regex: "release obsidian-plugdown v([0-9]+\\.[0-9]+\\.[0-9]+)"
+          version_assertion_command: 'grep -q "version = \"$version\"" obsidian-plugdown/Cargo.toml'
+          version_tag_prefix: "obsidian-plugdown@v"
+      - name: Fail if no tag was created
+        if: steps.create-tag.outputs.tag == ''
+        run: |
+          echo "No tag was created. Failing the job."
+          exit 1
+      - name: Extract version from tag name
+        id: extract-version
+        run: |
+          TAG="${{ steps.create-tag.outputs.tag }}"
+          echo "version=${TAG#obsidian-plugdown@v}" >> $GITHUB_OUTPUT
+
+  build-obsidian-plugin:
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run build
+      - name: Prepare artifact
+        run: |
+          mkdir -p ./artifact
+          cp ./out/main.js ./artifact/
+          cp ./manifest.json ./artifact/
+      - name: Archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: files-${{ matrix.target }}
+          path: ./artifact/*
+
+  release:
+    needs: ["tag", "build-obsidian-plugin"]
+    runs-on: ubuntu-latest
+    env:
+      version: ${{ needs.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # generate release notes
+      - name: Install parse-changelog
+        uses: taiki-e/install-action@parse-changelog
+      - name: Generate release notes from changelog
+        run: |
+          # make sure the version exists in the changelog and the job fails otherwise
+          parse-changelog CHANGELOG.md $version
+          printf "## $(parse-changelog CHANGELOG.md $version --title)\n\n$(parse-changelog CHANGELOG.md $version)" > release_notes.md
+
+      # copy artifacts
+      - name: Download build artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: List artifacts
+        run: ls -R artifacts
+
+      # create release
+      - name: Create GitHub Release with changelog and assets
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Plugdown v${{ needs.tag.outputs.version }}
+          tag_name: ${{ needs.tag.outputs.version }}
+          files: artifacts/**
+          body_path: release_notes.md
+          prerelease: true
