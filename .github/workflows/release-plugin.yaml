@@ -31,8 +31,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version_regex: "release obsidian-plugdown v([0-9]+\\.[0-9]+\\.[0-9]+)"
-          version_assertion_command: 'grep -q "version = \"$version\"" obsidian-plugdown/Cargo.toml'
-          version_tag_prefix: "obsidian-plugdown@v"
+          version_assertion_command: 'grep -q "\"version\": \"$version\"" manifest.json'
+          version_tag_prefix: "v"
       - name: Fail if no tag was created
         if: steps.create-tag.outputs.tag == ''
         run: |
@@ -42,7 +42,7 @@ jobs:
         id: extract-version
         run: |
           TAG="${{ steps.create-tag.outputs.tag }}"
-          echo "version=${TAG#obsidian-plugdown@v}" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
 
   build-obsidian-plugin:
     needs: tag
