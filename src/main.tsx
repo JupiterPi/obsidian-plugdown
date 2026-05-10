@@ -10,7 +10,8 @@ import { BehaviorSubject } from "rxjs";
 import z from "zod";
 import { ReactModal, useObsidianModal, usePlugin } from "./react-wrappers";
 import type { JSX } from "react/jsx-runtime";
-import { PluginManager } from "./plugin-manager";
+import { type DownloadedPlugin, PluginManager } from "./plugin-manager";
+import { useEffect, useState } from "react";
 
 const PluginSettings = z.object({});
 type PluginSettings = z.infer<typeof PluginSettings>;
@@ -47,7 +48,7 @@ function registerObsidianProtocolHandler(plugin: MyPlugin) {
       // safely parse params
       const params = z
         .object({
-          download_url: z.string(),
+          download_url: z.string().transform((str) => decodeURIComponent(str)),
         })
         .safeParse(e as unknown);
       if (!params.success) {
@@ -68,20 +69,58 @@ const InstallationConfirmModal = ({ downloadUrl }: { downloadUrl: string }) => {
   const plugin = usePlugin();
   const modal = useObsidianModal();
 
+  const [downloadedPlugin, setDownloadedPlugin] =
+    useState<DownloadedPlugin | null>(null);
+  useEffect(() => {
+    plugin.pluginManager
+      .downloadPlugin(downloadUrl)
+      .then(setDownloadedPlugin)
+      .catch((error) => {
+        new Notice("Failed to download plugin (see logs).");
+        console.error("Error downloading plugin:", error);
+        modal.close();
+      });
+  }, [downloadUrl]);
+
+  if (downloadedPlugin === null) {
+    return (
+      <p>
+        Downloading plugin from <code>{downloadUrl}</code>...
+      </p>
+    );
+  }
+
   return (
     <>
       <h2>Install Plugin via Plugdown</h2>
-      <p>You are about to install a plugin from the following URL:</p>
       <p>
+        You are about to install a plugin from the following URL:
+        <br />
         <b>
           <code>{downloadUrl}</code>
         </b>
       </p>
+      <p>
+        <b>Plugin Name:</b> {downloadedPlugin.name}
+        <br />
+        <b>Description:</b> {downloadedPlugin.description}
+      </p>
+      {downloadedPlugin.isAlreadyInstalled && (
+        <p style={{ color: "var(--color-orange)" }}>
+          A plugin with the same ID is already installed and will be
+          overwritten.
+        </p>
+      )}
       <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
         <button
           className="mod-cta" // use Obsidian's primary button style
           onClick={() => {
-            plugin.pluginManager.installPluginFromUrl(downloadUrl);
+            try {
+              plugin.pluginManager.installPlugin(downloadedPlugin);
+            } catch (error) {
+              new Notice("Failed to install plugin (see logs).");
+              console.error("Error installing plugin:", error);
+            }
             modal.close();
           }}
         >
@@ -108,7 +147,7 @@ class MySettings extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl).setDesc(
-      "Here, you will be able to manage plugins installed through Plugdown.",
+      "Here, you will maybe be able to manage plugins installed through Plugdown.",
     );
     // todo
   }
