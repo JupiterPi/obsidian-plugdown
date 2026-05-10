@@ -139,8 +139,8 @@ const SettingsTab = () => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <div style={{ fontWeight: "bold" }}>Generate a Plugdown link</div>
-      Enter the download URL to the zip file that contains the plugin you want
-      to share. This zip file needs to contain the manifest.json file at the
+      Enter the download URL to the ZIP file that contains the plugin you want
+      to share. This ZIP file needs to contain the manifest.json file at the
       root level.
       <input
         type="text"

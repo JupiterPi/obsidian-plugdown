@@ -3,8 +3,8 @@
     "name": "Plugdown",
     "version": "0.0.1",
     "minAppVersion": "0.15.0",
-    "description": "Quickly install Obsidian plugins from a (downloaded) zip file.",
+    "description": "Quickly install Obsidian plugins from a link to a ZIP file.",
     "author": "JupiterPi",
     "authorUrl": "https://github.com/JupiterPi",
-    "isDesktopOnly": false
+    "isDesktopOnly": true
 }
