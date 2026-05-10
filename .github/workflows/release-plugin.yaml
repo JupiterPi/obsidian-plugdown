@@ -94,7 +94,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: Plugdown v${{ needs.tag.outputs.version }}
-          tag_name: ${{ needs.tag.outputs.version }}
+          tag_name: v${{ needs.tag.outputs.version }}
           files: artifacts/**
           body_path: release_notes.md
           prerelease: true
