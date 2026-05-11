@@ -1,21 +1,54 @@
 import AdmZip from "adm-zip";
 import type Plugin from "./main";
 import z from "zod";
-import { App, normalizePath } from "obsidian";
+import { App, normalizePath, type ObsidianProtocolData } from "obsidian";
+
+const LinkParams = z.object({
+  download_url: z.string().transform((str) => decodeURIComponent(str)),
+  initial_data: z
+    .string()
+    .transform((str, ctx) => {
+      try {
+        return JSON.parse(decodeURIComponent(str));
+      } catch (e) {
+        ctx.issues.push({
+          code: "custom",
+          message: "initial_data is not valid JSON",
+          input: str,
+        });
+        return z.NEVER;
+      }
+    })
+    .optional(),
+});
+export type LinkParams = z.infer<typeof LinkParams>;
 
 export type DownloadedPlugin = {
   id: string;
   name: string;
   description: string;
   isAlreadyInstalled: boolean;
+  initialData: any | null;
   zip: AdmZip;
 };
 
 export class PluginManager {
   constructor(private plugin: Plugin) {}
 
-  async downloadPlugin(downloadUrl: string): Promise<DownloadedPlugin> {
-    const response = await fetch(downloadUrl, {
+  safelyParseLinkParams(e: ObsidianProtocolData) {
+    return LinkParams.safeParse(e as unknown);
+  }
+
+  stringifyLinkParams(downloadUrl: string, initialData?: any) {
+    let link = `obsidian://plugdown-install?download_url=${encodeURIComponent(downloadUrl)}`;
+    if (initialData) {
+      link += `&initial_data=${encodeURIComponent(JSON.stringify(initialData))}`;
+    }
+    return link;
+  }
+
+  async downloadPlugin(linkParams: LinkParams): Promise<DownloadedPlugin> {
+    const response = await fetch(linkParams.download_url, {
       signal: AbortSignal.timeout(15000), // 15s timeout
     });
     if (!response.ok) {
@@ -41,11 +74,21 @@ export class PluginManager {
     const isAlreadyInstalled =
       await this.plugin.app.vault.adapter.exists(pluginDir);
 
-    return { ...manifest, isAlreadyInstalled, zip };
+    return {
+      ...manifest,
+      isAlreadyInstalled,
+      initialData: linkParams.initial_data,
+      zip,
+    };
   }
 
   async installPlugin(downloadedPlugin: DownloadedPlugin) {
-    const { id: pluginId, zip, isAlreadyInstalled } = downloadedPlugin;
+    const {
+      id: pluginId,
+      zip,
+      isAlreadyInstalled,
+      initialData,
+    } = downloadedPlugin;
     const pluginDir = this.plugin.app.vault.configDir + "/plugins/" + pluginId;
 
     // delete old version
@@ -76,6 +119,14 @@ export class PluginManager {
           );
         }),
     );
+
+    // write initial data if provided
+    if (initialData !== undefined) {
+      await this.plugin.app.vault.adapter.write(
+        pluginDir + "/data.json",
+        JSON.stringify(initialData, null, 2),
+      );
+    }
 
     await enablePlugin(this.plugin.app, pluginId, isAlreadyInstalled);
   }

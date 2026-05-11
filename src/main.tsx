@@ -8,7 +8,11 @@ import {
   usePlugin,
 } from "./react-wrappers";
 import type { JSX } from "react/jsx-runtime";
-import { type DownloadedPlugin, PluginManager } from "./plugin-manager";
+import {
+  type DownloadedPlugin,
+  type LinkParams,
+  PluginManager,
+} from "./plugin-manager";
 import { useEffect, useState } from "react";
 
 const PluginSettings = z.object({});
@@ -45,26 +49,25 @@ function registerObsidianProtocolHandler(plugin: MyPlugin) {
     "plugdown-install",
     async (e: ObsidianProtocolData) => {
       // safely parse params
-      const params = z
-        .object({
-          download_url: z.string().transform((str) => decodeURIComponent(str)),
-        })
-        .safeParse(e as unknown);
+      const params = plugin.pluginManager.safelyParseLinkParams(e);
       if (!params.success) {
         new Notice("Invalid URL (see logs)");
         console.error("Invalid Obsidian protocol data:", params.error);
         return;
       }
-      const downloadUrl = params.data.download_url;
 
       plugin.openReactModal(
-        <InstallationConfirmModal downloadUrl={downloadUrl} />,
+        <InstallationConfirmModal linkParams={params.data} />,
       );
     },
   );
 }
 
-const InstallationConfirmModal = ({ downloadUrl }: { downloadUrl: string }) => {
+const InstallationConfirmModal = ({
+  linkParams,
+}: {
+  linkParams: LinkParams;
+}) => {
   const plugin = usePlugin();
   const modal = useObsidianModal();
 
@@ -72,19 +75,19 @@ const InstallationConfirmModal = ({ downloadUrl }: { downloadUrl: string }) => {
     useState<DownloadedPlugin | null>(null);
   useEffect(() => {
     plugin.pluginManager
-      .downloadPlugin(downloadUrl)
+      .downloadPlugin(linkParams)
       .then(setDownloadedPlugin)
       .catch((error) => {
         new Notice("Failed to download plugin (see logs).");
         console.error("Error downloading plugin:", error);
         modal.close();
       });
-  }, [downloadUrl]);
+  }, [linkParams]);
 
   if (downloadedPlugin === null) {
     return (
       <p>
-        Downloading plugin from <code>{downloadUrl}</code>...
+        Downloading plugin from <code>{linkParams.download_url}</code>...
       </p>
     );
   }
@@ -96,7 +99,7 @@ const InstallationConfirmModal = ({ downloadUrl }: { downloadUrl: string }) => {
         You are about to install a plugin from the following URL:
         <br />
         <b>
-          <code>{downloadUrl}</code>
+          <code>{linkParams.download_url}</code>
         </b>
       </p>
       <p>
@@ -104,6 +107,14 @@ const InstallationConfirmModal = ({ downloadUrl }: { downloadUrl: string }) => {
         <br />
         <b>Description:</b> {downloadedPlugin.description}
       </p>
+      {downloadedPlugin.initialData && (
+        <p>
+          <b>Initial Data:</b>{" "}
+          <code style={{ whiteSpaceCollapse: "preserve" }}>
+            {JSON.stringify(downloadedPlugin.initialData)}
+          </code>
+        </p>
+      )}
       {downloadedPlugin.isAlreadyInstalled && (
         <p style={{ color: "var(--color-orange)" }}>
           A plugin with the same ID is already installed and will be
@@ -134,31 +145,76 @@ const InstallationConfirmModal = ({ downloadUrl }: { downloadUrl: string }) => {
 // settings tab
 
 const SettingsTab = () => {
+  const plugin = usePlugin();
+
   const [downloadUrl, setDownloadUrl] = useState("");
+  const [initialDataStr, setInitialDataStr] = useState("");
+  const initialData = (() => {
+    try {
+      return JSON.parse(initialDataStr);
+    } catch {
+      return null;
+    }
+  })();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       <div style={{ fontWeight: "bold" }}>Generate a Plugdown link</div>
-      Enter the download URL to the ZIP file that contains the plugin you want
-      to share. This ZIP file needs to contain the manifest.json file at the
-      root level.
+      <label>
+        Prepare the ZIP file that contains the plugin you want to share. This
+        ZIP file needs to contain the manifest.json file at the root level.
+        Enter the download URL here:
+      </label>
       <input
         type="text"
-        style={{ flex: 1 }}
         placeholder="https://example.com/your-plugin.zip"
         value={downloadUrl}
         onChange={(e) => setDownloadUrl(e.target.value)}
       />
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <span>➡️</span>
-        <input
-          type="text"
-          style={{ flex: 1 }}
-          readOnly
-          value={`obsidian://plugdown-install?download_url=${encodeURIComponent(downloadUrl)}`}
-          onFocus={(e) => e.target.select()}
-        />
-      </div>
+      <label>
+        (Optional) Enter initial data as a JSON object, which will be inserted
+        into the plugin's data.json file on installation.
+      </label>
+      <input
+        type="text"
+        placeholder="{}"
+        value={initialDataStr}
+        onChange={(e) => setInitialDataStr(e.target.value)}
+        style={{ fontFamily: "monospace" }}
+      />
+      {initialDataStr.length > 0 && (
+        <>
+          {initialData === null && (
+            <div style={{ color: "var(--color-red)" }}>Invalid JSON.</div>
+          )}
+          {initialData !== null && (
+            <div style={{ opacity: 0.7 }}>
+              Initial data:{" "}
+              <code style={{ whiteSpaceCollapse: "preserve" }}>
+                {JSON.stringify(initialData)}
+              </code>
+            </div>
+          )}
+        </>
+      )}
+      {downloadUrl.length > 0 && (
+        <>
+          <label>Copy your Plugdown install link from here:</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span>➡️</span>
+            <input
+              type="text"
+              style={{ flex: 1 }}
+              readOnly
+              value={plugin.pluginManager.stringifyLinkParams(
+                downloadUrl,
+                initialData,
+              )}
+              onFocus={(e) => e.target.select()}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 };
