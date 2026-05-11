@@ -17,6 +17,8 @@ Create a download endpoint that serves a ZIP file of your plugin. This might be 
 Then, create a Plugdown link that contains the download URL. You can do this using the built-in generator in the Plugdown settings. It will look something like this:
 ```obsidian://plugdown-install?download_url=http%3A%2F%2Fexample.com%2Fyour-obsidian-plugin.zip```
 
+Optionally, you can also set an initial data payload, which will be copied into the data.json file of the plugin. 
+
 Obsidian users with Plugdown installed can now open this link, and Plugdown will handle downloading and installing the plugin into their Obsidian vault.
 
 ### Why?
